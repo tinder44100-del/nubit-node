@@ -1,24 +1,19 @@
-# استخدام نسخة لينكس خام ومستقرة جداً
-FROM debian:bullseye-slim
-
-# تثبيت الأدوات الأساسية والشهادات لفك أي حظر
-RUN apt-get update && apt-get install -y \
-    curl \
-    tar \
-    ca-certificates \
-    && apt-get clean
-
+# المرحلة 1: البناء السريع باستخدام Rust
+FROM rust:1.75-bullseye AS builder
+RUN apt-get update && apt-get install -y clang cmake build-essential git
 WORKDIR /app
+# سحب المستودع الرسمي لـ 0G Storage
+RUN git clone https://github.com/0glabs/0g-storage-node.git . \
+    && cargo build --release
 
-# استخدام رابط التحميل المباشر مع تجاوز فحص الشهادات إذا لزم الأمر
-RUN curl -k -L https://nubit.sh/nubit-bin/nubit-node-linux-amd64.tar.gz | tar -xzf - --strip-components=1
+# المرحلة 2: التشغيل الصافي (Production)
+FROM debian:bullseye-slim
+RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
+WORKDIR /root/
+COPY --from=builder /app/target/release/zgs_node /usr/local/bin/zgs_node
 
-# إعداد المتغيرات البيئية لضمان عمل المزامنة
-ENV NUBIT_NETWORK=nubit-alphatestnet-1
-ENV P2P_NETWORK=nubit-alphatestnet-1
+# إعدادات الأداء الفائق: ربط النود بـ RPC سريع جداً (Public Endpoint)
+ENV RPC_ENDPOINT=https://0g-json-rpc-public.0glabs.ai
 
-# منح صلاحيات كاملة للملفات التنفيذية
-RUN chmod +x nubit nkey
-
-# تشغيل النود بأمر مباشر يضمن عدم التوقف
-CMD ["./nubit", "light", "start", "--p2p.network", "nubit-alphatestnet-1"]
+# أمر التشغيل مع تحسين تدفق البيانات
+CMD ["zgs_node", "--config", "config.toml"]
