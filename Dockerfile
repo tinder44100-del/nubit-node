@@ -1,12 +1,13 @@
-# استخدام الصورة الرسمية الموثقة من NubitLabs
+# السحب من المستودع الرسمي المباشر
 FROM nubitlabs/nubit-node:latest
 
-# المتغيرات الأساسية للشبكة
+# إعداد المتغيرات البيئية الضرورية للشبكة
 ENV NUBIT_NETWORK=nubit-alphatestnet-1
 ENV P2P_NETWORK=nubit-alphatestnet-1
 
-# تعيين مسار العمل
+# تعيين مسار العمل الافتراضي
 WORKDIR /home/nubit
 
-# تشغيل النود مباشرة (بدون VOLUME وبدون تعقيد)
-ENTRYPOINT ["./nubit", "light", "start", "--p2p.network", "nubit-alphatestnet-1"]
+# أمر التشغيل المباشر والبسيط
+# أضفنا --non-interactive لتجنب التوقف عند طلب مدخلات
+CMD ["./nubit", "light", "start", "--p2p.network", "nubit-alphatestnet-1", "--non-interactive"]
