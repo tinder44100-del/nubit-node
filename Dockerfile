@@ -1,29 +1,26 @@
-# المرحلة 1: بناء النود مع كافة التبعيات التقنية
-FROM golang:1.21-bullseye AS builder
+# المرحلة 1: بناء النود مع كافة التبعيات التقنية لعام 2026
+FROM rust:1.75-bullseye AS builder
 
-# تثبيت الأدوات الهندسية المفقودة (التي تسببت في الخطأ السابق)
+# تثبيت الأدوات الهندسية المفقودة والمطلوبة لعملية الـ Compiling
 RUN apt-get update && apt-get install -y \
     clang cmake build-essential git protobuf-compiler libssl-dev pkg-config
 
-# إعداد بيئة Rust (اللازمة لبناء 0g-storage-node)
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
-
 WORKDIR /app
+# سحب الكود المصدري الرسمي
 RUN git clone https://github.com/0glabs/0g-storage-node.git .
 
-# تشغيل البناء النهائي (هنا سيتم تجاوز الخطأ السابق)
+# تنفيذ البناء النهائي للنسخة المستقرة
 RUN cargo build --release
 
-# المرحلة 2: بيئة التشغيل المصغرة (Lightweight Runtime)
+# المرحلة 2: بيئة التشغيل الصافية والموفرة للموارد
 FROM debian:bullseye-slim
 RUN apt-get update && apt-get install -y ca-certificates curl jq && rm -rf /var/lib/apt/lists/*
 WORKDIR /root/
 
-# نقل الملف التنفيذي الناتج
+# نقل الملف التنفيذي zgs_node فقط لتقليل حجم الحاوية في Railway
 COPY --from=builder /app/target/release/zgs_node /usr/local/bin/
 
-# سكريبت الاستمرارية لضمان العوائد وعدم التوقف
+# سكريبت الاستمرارية الذكي لإعادة التشغيل الآلي
 RUN echo '#!/bin/bash\n\
 while true; do\n\
   /usr/local/bin/zgs_node --config /root/config.toml\n\
