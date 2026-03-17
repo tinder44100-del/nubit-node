@@ -1,0 +1,13 @@
+# إعدادات الشبكة لعام 2026
+network_enr_address = "0.0.0.0"
+network_libp2p_port = 1234
+network_discovery_port = 1234
+rpc_listen_address = "0.0.0.0:5678"
+
+# الربط بـ RPC الرسمي والسريع جداً لضمان المزامنة
+blockchain_rpc_endpoint = "https://0g-json-rpc-public.0glabs.ai"
+log_contract_address = "0x..." # سيتم تحديثه آلياً عند التشغيل
+log_sync_start_block_number = 800000
+
+# تحسين أداء التخزين
+db_dir = "db"
