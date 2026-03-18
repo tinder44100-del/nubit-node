@@ -1,7 +1,7 @@
-# المرحلة الأولى: البناء مع كافة الأدوات اللازمة
+# المرحلة الأولى: بناء التطبيق (Builder)
 FROM rust:1.75-bullseye AS builder
 
-# تثبيت الأدوات الهندسية المطلوبة بما فيها المترجم المفقود protoc والمكتبات الأمنية
+# تثبيت الأدوات الهندسية والمترجم المفقود protoc
 RUN apt-get update && apt-get install -y \
     clang \
     cmake \
@@ -13,21 +13,21 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# سحب الكود المصدري لنود 0G Labs
+# جلب الكود المصدري
 RUN git clone https://github.com/0glabs/0g-storage-node.git .
 
-# تشغيل البناء النهائي (هذه المرة سينجح لوجود المترجم المذكور في الخطأ)
+# بناء المشروع بالنمط النهائي
 RUN cargo build --release
 
-# المرحلة الثانية: التشغيل النهائي (لتصغير حجم الحاوية وتوفير موارد السيرفر)
+# المرحلة الثانية: بيئة التشغيل (Runtime) لتقليل الحجم وتوفير الموارد
 FROM debian:bullseye-slim
 RUN apt-get update && apt-get install -y ca-certificates curl jq && rm -rf /var/lib/apt/lists/*
 WORKDIR /root/
 
-# نقل الملف التنفيذي فقط من مرحلة البناء
+# نسخ الملف التنفيذي فقط من مرحلة البناء
 COPY --from=builder /app/target/release/zgs_node /usr/local/bin/
 
-# إضافة سكريبت الاستمرارية لضمان إعادة التشغيل التلقائي في حال تعثرت النود
+# سكريبت التشغيل الذكي: يعيد تشغيل النود تلقائياً إذا توقفت
 RUN echo '#!/bin/bash\n\
 while true; do\n\
   /usr/local/bin/zgs_node --config /root/config.toml\n\
