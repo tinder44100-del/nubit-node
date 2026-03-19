@@ -1,36 +1,48 @@
 # =========================================
-# NodeOps Node Dockerfile 2026 - Optimized
-# Node واحد عالي الأداء + snapshot + logs
+# Mina Protocol Node + Snarker Node
+# High Efficiency - Single Dockerfile
 # =========================================
 
-# استخدام Docker image الرسمي
-FROM nodeops/node:latest
+FROM minaprotocol/mina-daemon:latest
 
-# إعداد متغيرات البيئة
-ENV NODEOPS_DATA=/app/data
-ENV NODEOPS_SNAPSHOT_URL=https://nodeops.network/snapshots/latest-snapshot.tar.gz
+# ------------------------------
+# إعداد مجلد البيانات
+# ------------------------------
+ENV MINA_DATA_DIR=/root/.mina
+ENV SNARKER_DATA_DIR=/root/.mina/snarker
+VOLUME ["/root/.mina"]
 
-# مجلد بيانات دائم
-VOLUME ["/app/data"]
+WORKDIR /root
 
-# تعيين مجلد العمل
-WORKDIR /app
-
+# ------------------------------
 # تثبيت أدوات مساعدة
-RUN apt update && apt install -y wget tar tmux htop && apt clean
+# ------------------------------
+RUN apt update && apt install -y wget tmux htop supervisor && apt clean
 
-# تنزيل أحدث snapshot لتسريع التشغيل
-RUN echo "📥 Downloading latest NodeOps snapshot..." && \
-    mkdir -p $NODEOPS_DATA && \
-    wget -O /tmp/snapshot.tar.gz $NODEOPS_SNAPSHOT_URL && \
-    tar -xzf /tmp/snapshot.tar.gz -C $NODEOPS_DATA && \
+# ------------------------------
+# تنزيل snapshot لتسريع التشغيل
+# ------------------------------
+RUN echo "📥 Downloading latest snapshot..." && \
+    mkdir -p $MINA_DATA_DIR && \
+    wget -O /tmp/snapshot.tar.gz https://storage.googleapis.com/mina-network-binaries/mainnet_snapshot.tar.gz && \
+    tar -xzf /tmp/snapshot.tar.gz -C $MINA_DATA_DIR && \
     rm /tmp/snapshot.tar.gz
 
-# إنشاء سكريبت تشغيل Node
-RUN echo '#!/bin/bash\n\
-echo "🚀 Starting NodeOps Node with snapshot..."\n\
-nodeops-node --data-dir $NODEOPS_DATA\n\
-' > start-node.sh && chmod +x start-node.sh
+# ------------------------------
+# إعداد Supervisor لتشغيل Node + Snarker تلقائيًا
+# ------------------------------
+RUN echo "[supervisord]" > /etc/supervisor/conf.d/mina.conf && \
+    echo "nodaemon=true" >> /etc/supervisor/conf.d/mina.conf && \
+    echo "[program:mina-node]" >> /etc/supervisor/conf.d/mina.conf && \
+    echo "command=mina daemon -peer-list-url https://storage.googleapis.com/mina-network-binaries/mainnet_peers.txt" >> /etc/supervisor/conf.d/mina.conf && \
+    echo "autostart=true" >> /etc/supervisor/conf.d/mina.conf && \
+    echo "autorestart=true" >> /etc/supervisor/conf.d/mina.conf && \
+    echo "[program:snarker-node]" >> /etc/supervisor/conf.d/mina.conf && \
+    echo "command=mina daemon -run-snark-worker <YOUR_PUBLIC_KEY>" >> /etc/supervisor/conf.d/mina.conf && \
+    echo "autostart=true" >> /etc/supervisor/conf.d/mina.conf && \
+    echo "autorestart=true" >> /etc/supervisor/conf.d/mina.conf
 
+# ------------------------------
 # نقطة الدخول
-ENTRYPOINT ["./start-node.sh"]
+# ------------------------------
+ENTRYPOINT ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/mina.conf"]
