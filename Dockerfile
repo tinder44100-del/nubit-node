@@ -1,39 +1,36 @@
-# =====================================
-# NodeOps Node Dockerfile - 2026
-# Node واحد عالي الأداء
-# =====================================
+# =========================================
+# NodeOps Node Dockerfile 2026 - Optimized
+# Node واحد عالي الأداء + snapshot + logs
+# =========================================
 
-# Base image
-FROM ubuntu:22.04
+# استخدام Docker image الرسمي
+FROM nodeops/node:latest
 
-# Set environment
-ENV DEBIAN_FRONTEND=noninteractive
+# إعداد متغيرات البيئة
 ENV NODEOPS_DATA=/app/data
+ENV NODEOPS_SNAPSHOT_URL=https://nodeops.network/snapshots/latest-snapshot.tar.gz
 
-# 1. تحديث النظام وتثبيت الأدوات المطلوبة
-RUN apt update && apt upgrade -y && \
-    apt install -y git curl build-essential docker.io tmux screen wget unzip sudo && \
-    apt clean && rm -rf /var/lib/apt/lists/*
+# مجلد بيانات دائم
+VOLUME ["/app/data"]
 
-# 2. إنشاء مجلد بيانات Node
-RUN mkdir -p $NODEOPS_DATA
+# تعيين مجلد العمل
 WORKDIR /app
 
-# 3. تنزيل NodeOps Node image الرسمية
-# استخدم نسخة ثابتة إذا وجدت
-RUN git clone https://github.com/nodeops/node.git nodeops-node
+# تثبيت أدوات مساعدة
+RUN apt update && apt install -y wget tar tmux htop && apt clean
 
-WORKDIR /app/nodeops-node
+# تنزيل أحدث snapshot لتسريع التشغيل
+RUN echo "📥 Downloading latest NodeOps snapshot..." && \
+    mkdir -p $NODEOPS_DATA && \
+    wget -O /tmp/snapshot.tar.gz $NODEOPS_SNAPSHOT_URL && \
+    tar -xzf /tmp/snapshot.tar.gz -C $NODEOPS_DATA && \
+    rm /tmp/snapshot.tar.gz
 
-# 4. بناء Node (إذا مطلوب)
-# يمكنك التعليق إذا تم استخدام Docker image رسمي
-RUN ./build.sh
-
-# 5. إنشاء ملف تشغيل Node
+# إنشاء سكريبت تشغيل Node
 RUN echo '#!/bin/bash\n\
-echo "🚀 Starting NodeOps Node..."\n\
-./nodeops-node --data-dir $NODEOPS_DATA\n\
+echo "🚀 Starting NodeOps Node with snapshot..."\n\
+nodeops-node --data-dir $NODEOPS_DATA\n\
 ' > start-node.sh && chmod +x start-node.sh
 
-# 6. تعيين نقطة الدخول لتشغيل Node تلقائيًا
+# نقطة الدخول
 ENTRYPOINT ["./start-node.sh"]
